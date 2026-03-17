@@ -1,81 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
-const contacts = [
-  {
-    id: 1,
-    name: "Ana García",
-    avatar: "AG",
-    lastMessage: "Perfecto, nos vemos mañana!",
-    time: "10:42",
-    unread: 2,
-    online: true,
-  },
-  {
-    id: 2,
-    name: "Carlos López",
-    avatar: "CL",
-    lastMessage: "Te envié el documento",
-    time: "09:15",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 3,
-    name: "María Rodríguez",
-    avatar: "MR",
-    lastMessage: "Gracias por la info 🙏",
-    time: "Ayer",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: 4,
-    name: "Pedro Martínez",
-    avatar: "PM",
-    lastMessage: "Jaja buenísimo 😂",
-    time: "Ayer",
-    unread: 5,
-    online: false,
-  },
-  {
-    id: 5,
-    name: "Lucía Fernández",
-    avatar: "LF",
-    lastMessage: "¿A qué hora es la reunión?",
-    time: "Lun",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 6,
-    name: "Diego Sánchez",
-    avatar: "DS",
-    lastMessage: "Dale, confirmo asistencia",
-    time: "Lun",
-    unread: 0,
-    online: true,
-  },
-  {
-    id: 7,
-    name: "Valentina Torres",
-    avatar: "VT",
-    lastMessage: "Foto enviada",
-    time: "Dom",
-    unread: 0,
-    online: false,
-  },
-  {
-    id: 8,
-    name: "Equipo Desarrollo",
-    avatar: "ED",
-    lastMessage: "Roberto: Deploy listo ✅",
-    time: "Dom",
-    unread: 0,
-    online: false,
-  },
-];
+type Contact = {
+  id: number;
+  name: string;
+  avatar: string;
+  lastMessage: string;
+  time: string;
+  unread: number;
+  online: boolean;
+};
+
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
 
 type Message = {
   id: number;
@@ -85,49 +30,10 @@ type Message = {
   status: "sent" | "delivered" | "read";
 };
 
-const messagesByContact: Record<number, Message[]> = {
-  1: [
-    { id: 1, text: "Hola Ana! ¿Cómo estás?", time: "10:30", fromMe: true, status: "read" },
-    { id: 2, text: "Hola! Todo bien, gracias 😊", time: "10:32", fromMe: false, status: "read" },
-    { id: 3, text: "¿Nos juntamos mañana para revisar el proyecto?", time: "10:35", fromMe: true, status: "read" },
-    { id: 4, text: "Sí, dale! ¿A las 10am te parece?", time: "10:38", fromMe: false, status: "read" },
-    { id: 5, text: "Perfecto, a las 10am", time: "10:40", fromMe: true, status: "read" },
-    { id: 6, text: "Perfecto, nos vemos mañana!", time: "10:42", fromMe: false, status: "read" },
-  ],
-  2: [
-    { id: 1, text: "Carlos, ¿tienes el reporte listo?", time: "08:50", fromMe: true, status: "read" },
-    { id: 2, text: "Sí, lo estoy terminando", time: "09:00", fromMe: false, status: "read" },
-    { id: 3, text: "Te envié el documento", time: "09:15", fromMe: false, status: "read" },
-  ],
-  3: [
-    { id: 1, text: "María, te comparto los datos del cliente nuevo", time: "14:20", fromMe: true, status: "read" },
-    { id: 2, text: "Nombre: Tech Solutions S.A.\nContacto: Juan Pérez\nEmail: juan@techsolutions.com", time: "14:21", fromMe: true, status: "read" },
-    { id: 3, text: "Gracias por la info 🙏", time: "14:25", fromMe: false, status: "read" },
-  ],
-  4: [
-    { id: 1, text: "Pedro! ¿Viste el meme que mandé al grupo?", time: "18:00", fromMe: true, status: "read" },
-    { id: 2, text: "Jaja buenísimo 😂", time: "18:05", fromMe: false, status: "read" },
-  ],
-  5: [
-    { id: 1, text: "Hola Lucía", time: "11:00", fromMe: false, status: "read" },
-    { id: 2, text: "Hola! ¿Qué tal?", time: "11:05", fromMe: true, status: "read" },
-    { id: 3, text: "¿A qué hora es la reunión?", time: "11:10", fromMe: false, status: "read" },
-  ],
-  6: [
-    { id: 1, text: "Diego, ¿vienes al evento del viernes?", time: "09:30", fromMe: true, status: "delivered" },
-    { id: 2, text: "Dale, confirmo asistencia", time: "10:00", fromMe: false, status: "read" },
-  ],
-  7: [
-    { id: 1, text: "Valentina, ¿cómo va todo?", time: "16:00", fromMe: true, status: "read" },
-    { id: 2, text: "Bien! Mira esta foto del evento", time: "16:10", fromMe: false, status: "read" },
-    { id: 3, text: "Foto enviada", time: "16:11", fromMe: false, status: "read" },
-  ],
-  8: [
-    { id: 1, text: "¿Alguien puede revisar el PR #42?", time: "15:00", fromMe: true, status: "read" },
-    { id: 2, text: "Yo lo reviso ahora", time: "15:10", fromMe: false, status: "read" },
-    { id: 3, text: "Roberto: Deploy listo ✅", time: "15:45", fromMe: false, status: "read" },
-  ],
-};
+function formatTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  return date.toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
+}
 
 function CheckIcon({ double, read }: { double: boolean; read: boolean }) {
   const color = read ? "#53bdeb" : "#8696a0";
@@ -147,34 +53,157 @@ function CheckIcon({ double, read }: { double: boolean; read: boolean }) {
 }
 
 export default function Home() {
-  const [selectedContact, setSelectedContact] = useState(contacts[0]);
-  const [messages, setMessages] = useState(messagesByContact);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
-  const currentMessages = messages[selectedContact.id] || [];
+  useEffect(() => {
+    async function fetchContacts() {
+      const { data, error } = await supabase
+        .from("contacts")
+        .select("*")
+        .order("name");
+
+      if (error) {
+        console.error("Error fetching contacts:", error);
+        setLoading(false);
+        return;
+      }
+
+      const mapped: Contact[] = (data ?? []).map((row) => ({
+        id: row.id,
+        name: row.name ?? "",
+        avatar: getInitials(row.name ?? ""),
+        lastMessage: row.last_message ?? "",
+        time: row.last_message_time ?? "",
+        unread: row.unread_count ?? 0,
+        online: row.online ?? false,
+      }));
+
+      setContacts(mapped);
+      if (mapped.length > 0) setSelectedContact(mapped[0]);
+      setLoading(false);
+    }
+
+    fetchContacts();
+  }, []);
+
+  useEffect(() => {
+    if (!selectedContact) return;
+
+    let cancelled = false;
+
+    async function fetchMessages() {
+      setLoadingMessages(true);
+
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("contact_id", selectedContact!.id)
+        .order("created_at", { ascending: true });
+
+      if (cancelled) return;
+
+      if (error) {
+        console.error("Error fetching messages:", error);
+        setLoadingMessages(false);
+        return;
+      }
+
+      const mapped: Message[] = (data ?? []).map((row) => ({
+        id: row.id,
+        text: row.text ?? row.content ?? "",
+        time: formatTime(row.created_at),
+        fromMe: row.from_me ?? false,
+        status: row.status ?? "delivered",
+      }));
+
+      setMessages(mapped);
+      setLoadingMessages(false);
+    }
+
+    fetchMessages();
+
+    const channel = supabase
+      .channel(`messages:contact_id=eq.${selectedContact.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `contact_id=eq.${selectedContact.id}`,
+        },
+        (payload) => {
+          if (cancelled) return;
+          const row = payload.new;
+          const incoming: Message = {
+            id: row.id,
+            text: row.text ?? row.content ?? "",
+            time: formatTime(row.created_at),
+            fromMe: row.from_me ?? false,
+            status: row.status ?? "delivered",
+          };
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === incoming.id)) return prev;
+            return [...prev, incoming];
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(channel);
+    };
+  }, [selectedContact]);
 
   const filteredContacts = contacts.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  function handleSend() {
+  async function handleSend() {
     const text = inputValue.trim();
-    if (!text) return;
+    if (!text || !selectedContact) return;
 
-    const newMsg: Message = {
+    setInputValue("");
+
+    const optimisticMsg: Message = {
       id: Date.now(),
       text,
       time: new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
       fromMe: true,
       status: "sent",
     };
+    setMessages((prev) => [...prev, optimisticMsg]);
 
-    setMessages((prev) => ({
-      ...prev,
-      [selectedContact.id]: [...(prev[selectedContact.id] || []), newMsg],
-    }));
-    setInputValue("");
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
+        contact_id: selectedContact.id,
+        text,
+        direction: "outbound",
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) => prev.filter((m) => m.id !== optimisticMsg.id));
+      return;
+    }
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.id === optimisticMsg.id
+          ? { ...m, id: data.id, time: formatTime(data.created_at), status: "delivered" }
+          : m
+      )
+    );
   }
 
   return (
@@ -224,7 +253,7 @@ export default function Home() {
                 key={contact.id}
                 onClick={() => setSelectedContact(contact)}
                 className={`flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-[#202c33] ${
-                  selectedContact.id === contact.id ? "bg-[#2a3942]" : ""
+                  selectedContact?.id === contact.id ? "bg-[#2a3942]" : ""
                 }`}
               >
                 <div className="relative shrink-0">
@@ -258,6 +287,14 @@ export default function Home() {
 
         {/* Chat Area */}
         <main className="flex flex-1 flex-col bg-[#0b141a]">
+          {!selectedContact ? (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-sm text-[#8696a0]">
+                {loading ? "Cargando contactos..." : "No hay contactos"}
+              </p>
+            </div>
+          ) : (
+          <>
           {/* Chat Header */}
           <header className="flex h-[60px] items-center gap-3 bg-[#202c33] px-4">
             <div className="relative">
@@ -296,7 +333,12 @@ export default function Home() {
               backgroundColor: "#0b141a",
             }}
           >
-            {currentMessages.map((msg) => (
+            {loadingMessages && (
+              <div className="flex flex-1 items-center justify-center">
+                <p className="text-sm text-[#8696a0]">Cargando mensajes...</p>
+              </div>
+            )}
+            {messages.map((msg) => (
               <div
                 key={msg.id}
                 className={`flex ${msg.fromMe ? "justify-end" : "justify-start"}`}
@@ -368,6 +410,8 @@ export default function Home() {
               </button>
             )}
           </div>
+          </>
+          )}
         </main>
       </div>
     </div>
