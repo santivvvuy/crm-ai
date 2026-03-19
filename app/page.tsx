@@ -209,6 +209,7 @@ export default function Home() {
     );
 
     // 2. Enviar por WhatsApp via n8n
+    console.log("Enviando a:", selectedContact.phone, "texto:", text);
     try {
       await fetch("https://marketphone.app.n8n.cloud/webhook/send-message", {
         method: "POST",
