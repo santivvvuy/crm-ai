@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 type Contact = {
   id: string;
   name: string;
+  phone: string;
   avatar: string;
   lastMessage: string;
   time: string;
@@ -77,6 +78,7 @@ export default function Home() {
       const mapped: Contact[] = (data ?? []).map((row) => ({
         id: row.id,
         name: row.name ?? "",
+        phone: row.phone ?? "",
         avatar: getInitials(row.name ?? ""),
         lastMessage: row.last_message ?? "",
         time: row.last_message_time ?? "",
@@ -181,6 +183,7 @@ export default function Home() {
     };
     setMessages((prev) => [...prev, optimisticMsg]);
 
+    // 1. Guardar en Supabase
     const { data, error } = await supabase
       .from("messages")
       .insert({
@@ -204,6 +207,20 @@ export default function Home() {
           : m
       )
     );
+
+    // 2. Enviar por WhatsApp via n8n
+    try {
+      await fetch("https://marketphone.app.n8n.cloud/webhook/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phone: selectedContact.phone,
+          text,
+        }),
+      });
+    } catch (err) {
+      console.error("Error enviando WhatsApp:", err);
+    }
   }
 
   return (
