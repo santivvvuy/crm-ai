@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Contact = {
-  id: number;
+  id: string;
   name: string;
   avatar: string;
   lastMessage: string;
@@ -23,7 +23,7 @@ function getInitials(name: string): string {
 }
 
 type Message = {
-  id: number;
+  id: string;
   text: string;
   time: string;
   fromMe: boolean;
@@ -173,7 +173,7 @@ export default function Home() {
     setInputValue("");
 
     const optimisticMsg: Message = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       text,
       time: new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
       fromMe: true,
