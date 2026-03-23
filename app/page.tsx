@@ -12,6 +12,7 @@ type Contact = {
   time: string;
   unread: number;
   online: boolean;
+  aiEnabled: boolean;
 };
 
 function getInitials(name: string): string {
@@ -62,11 +63,34 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  async function toggleAI(contact: Contact) {
+    const newValue = !contact.aiEnabled;
+    setContacts((prev) =>
+      prev.map((c) => (c.id === contact.id ? { ...c, aiEnabled: newValue } : c))
+    );
+    if (selectedContact?.id === contact.id) {
+      setSelectedContact((prev) => prev ? { ...prev, aiEnabled: newValue } : prev);
+    }
+    const { error } = await supabase
+      .from("contacts")
+      .update({ ai_enabled: newValue })
+      .eq("id", contact.id);
+    if (error) {
+      console.error("Error toggling AI:", error);
+      setContacts((prev) =>
+        prev.map((c) => (c.id === contact.id ? { ...c, aiEnabled: !newValue } : c))
+      );
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact((prev) => prev ? { ...prev, aiEnabled: !newValue } : prev);
+      }
+    }
+  }
+
   useEffect(() => {
     async function fetchContacts() {
       const { data, error } = await supabase
         .from("contacts")
-        .select("id, name, phone, last_message, last_message_time, unread_count, online")
+        .select("id, name, phone, last_message, last_message_time, unread_count, online, ai_enabled")
         .order("name");
 
       if (error) {
@@ -84,6 +108,7 @@ export default function Home() {
         time: row.last_message_time ?? "",
         unread: row.unread_count ?? 0,
         online: row.online ?? false,
+        aiEnabled: row.ai_enabled ?? true,
       }));
 
       setContacts(mapped);
@@ -162,7 +187,7 @@ export default function Home() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
-  }, [selectedContact]);
+  }, [selectedContact?.id]);
 
   const filteredContacts = contacts.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -281,6 +306,11 @@ export default function Home() {
                   {contact.online && (
                     <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-[#111b21] bg-[#00a884]" />
                   )}
+                  {contact.aiEnabled && (
+                    <span className="absolute -bottom-0.5 -left-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#00a884] text-[8px]" title="IA activa">
+                      🤖
+                    </span>
+                  )}
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col border-b border-[#222d35] pb-3">
                   <div className="flex items-center justify-between">
@@ -330,6 +360,17 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => selectedContact && toggleAI(selectedContact)}
+                title={selectedContact?.aiEnabled ? "IA activa — click para tomar control" : "Modo manual — click para activar IA"}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                  selectedContact?.aiEnabled
+                    ? "bg-[#00a884] text-[#111b21] hover:bg-[#008f6f]"
+                    : "bg-[#2a3942] text-[#8696a0] hover:bg-[#3a4a52]"
+                }`}
+              >
+                <span>{selectedContact?.aiEnabled ? "🤖 IA" : "👤 Vos"}</span>
+              </button>
               <button className="rounded-full p-2 text-[#aebac1] transition-colors hover:bg-[#2a3942]" aria-label="Search">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
                   <path d="M15.009 13.805h-.636l-.22-.219a5.184 5.184 0 0 0 1.256-3.386 5.207 5.207 0 1 0-5.207 5.208 5.183 5.183 0 0 0 3.385-1.255l.221.22v.635l4.004 3.999 1.194-1.195-3.997-4.007zm-4.808 0a3.6 3.6 0 1 1 0-7.2 3.6 3.6 0 0 1 0 7.2z" />
