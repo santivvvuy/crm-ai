@@ -241,8 +241,10 @@ export default function Home() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phone: selectedContact.phone,
-          text,
+          messaging_product: "whatsapp",
+          to: selectedContact.phone,
+          type: "text",
+          text: { body: text },
         }),
       });
     } catch (err) {
