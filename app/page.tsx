@@ -66,7 +66,7 @@ export default function Home() {
     async function fetchContacts() {
       const { data, error } = await supabase
         .from("contacts")
-        .select("*")
+        .select("id, name, phone, last_message, last_message_time, unread_count, online")
         .order("name");
 
       if (error) {
