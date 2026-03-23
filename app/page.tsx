@@ -62,6 +62,7 @@ export default function Home() {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
+  const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
   async function toggleAI(contact: Contact) {
     const newValue = !contact.aiEnabled;
@@ -250,10 +251,12 @@ export default function Home() {
   }
 
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-[#111b21]">
+    <div className="flex h-[100dvh] w-screen items-center justify-center bg-[#111b21]">
       <div className="flex h-full w-full max-w-[1600px] overflow-hidden shadow-2xl xl:h-[96vh] xl:rounded-sm">
         {/* Sidebar */}
-        <aside className="flex w-[420px] min-w-[320px] flex-col border-r border-[#222d35] bg-[#111b21]">
+        <aside className={`flex flex-col border-r border-[#222d35] bg-[#111b21] ${
+          mobileView === "chat" ? "hidden md:flex" : "flex"
+        } w-full md:w-[360px] md:min-w-[320px] lg:w-[420px]`}>
           {/* Sidebar Header */}
           <header className="flex h-[60px] items-center justify-between bg-[#202c33] px-4">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6b7c85] text-sm font-medium text-white">
@@ -294,7 +297,7 @@ export default function Home() {
             {filteredContacts.map((contact) => (
               <button
                 key={contact.id}
-                onClick={() => setSelectedContact(contact)}
+                onClick={() => { setSelectedContact(contact); setMobileView("chat"); }}
                 className={`flex w-full items-center gap-3 px-3 py-3 text-left transition-colors hover:bg-[#202c33] ${
                   selectedContact?.id === contact.id ? "bg-[#2a3942]" : ""
                 }`}
@@ -334,7 +337,9 @@ export default function Home() {
         </aside>
 
         {/* Chat Area */}
-        <main className="flex flex-1 flex-col bg-[#0b141a]">
+        <main className={`flex flex-col bg-[#0b141a] ${
+          mobileView === "list" ? "hidden md:flex" : "flex"
+        } flex-1`}>
           {!selectedContact ? (
             <div className="flex flex-1 items-center justify-center">
               <p className="text-sm text-[#8696a0]">
@@ -345,6 +350,15 @@ export default function Home() {
           <>
           {/* Chat Header */}
           <header className="flex h-[60px] items-center gap-3 bg-[#202c33] px-4">
+            <button
+              onClick={() => setMobileView("list")}
+              className="md:hidden -ml-1 rounded-full p-2 text-[#aebac1] transition-colors hover:bg-[#2a3942]"
+              aria-label="Volver"
+            >
+              <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z" />
+              </svg>
+            </button>
             <div className="relative">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6b7c85] text-sm font-medium text-white">
                 {selectedContact.avatar}
