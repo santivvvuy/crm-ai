@@ -11,7 +11,7 @@ export type Contact = {
 
 export type Message = {
   id: string;
-  content: string;
+  text: string;
   time: string;
   fromMe: boolean;
   status: "sent" | "delivered" | "read";

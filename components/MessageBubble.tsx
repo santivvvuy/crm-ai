@@ -9,7 +9,7 @@ export default function MessageBubble({ msg }: { msg: Message }) {
           msg.fromMe ? "bg-[#005c4b] text-[#e9edef]" : "bg-[#202c33] text-[#e9edef]"
         }`}
       >
-        <span className="whitespace-pre-wrap text-sm leading-[19px]">{msg.content}</span>
+        <span className="whitespace-pre-wrap text-sm leading-[19px]">{msg.text}</span>
         <span className="float-right mt-1 ml-3 flex items-center gap-0.5 text-[11px] text-[#ffffff99]">
           {msg.time}
           {msg.fromMe && (

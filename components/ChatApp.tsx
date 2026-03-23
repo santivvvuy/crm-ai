@@ -120,7 +120,7 @@ export default function ChatApp() {
 
       const mapped: Message[] = (data ?? []).map((row) => ({
         id: row.id,
-        content: row.content ?? "",
+        text: row.text ?? "",
         time: formatTime(row.created_at),
         fromMe: row.from_me ?? false,
         status: row.status ?? "delivered",
@@ -147,7 +147,7 @@ export default function ChatApp() {
           const row = payload.new;
           const incoming: Message = {
             id: row.id,
-            content: row.content ?? "",
+            text: row.text ?? "",
             time: formatTime(row.created_at),
             fromMe: row.from_me ?? false,
             status: row.status ?? "delivered",
@@ -190,7 +190,7 @@ export default function ChatApp() {
     const optimisticId = crypto.randomUUID();
     const optimisticMsg: Message = {
       id: optimisticId,
-      content: text,
+      text,
       time: new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
       fromMe: true,
       status: "sent",
@@ -202,7 +202,7 @@ export default function ChatApp() {
       .from("messages")
       .insert({
         contact_id: selectedContact.id,
-        content: text,
+        text,
         direction: "outbound",
       })
       .select()
