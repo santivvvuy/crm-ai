@@ -12,6 +12,7 @@ import { BroadcastModal } from "./components/BroadcastModal";
 import { BotSettingsModal } from "./components/BotSettingsModal";
 import { ToastContainer } from "./components/Toast";
 import { useGlobalRealtime } from "./hooks/useGlobalRealtime";
+import { usePushNotifications } from "./hooks/usePushNotifications";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -87,8 +88,8 @@ export default function Home() {
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showBotSettings, setShowBotSettings] = useState(false);
 
-  // Notifications
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission>("default");
+  // Push notifications
+  const { status: pushStatus, subscribe: subscribePush } = usePushNotifications();
 
   // Toasts
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -107,20 +108,11 @@ export default function Home() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) router.push("/login");
     });
-    if ("Notification" in window) {
-      setNotifPermission(Notification.permission);
-    }
   }, [router]);
 
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");
-  }
-
-  async function requestNotifications() {
-    if (!("Notification" in window)) return;
-    const perm = await Notification.requestPermission();
-    setNotifPermission(perm);
   }
 
   // ─── Toast ─────────────────────────────────────────────────────────────────
@@ -469,13 +461,18 @@ export default function Home() {
                   <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
                 </svg>
               </button>
-              {/* Notification bell */}
-              <button onClick={requestNotifications} title={notifPermission === "granted" ? "Notificaciones activas" : "Activar notificaciones"}
-                className={`rounded-lg p-2 transition-colors ${notifPermission === "granted" ? "text-blue-400 hover:bg-[#112240]" : notifPermission === "denied" ? "text-red-400/60 hover:bg-[#112240]" : "text-[#4a6fa5] hover:bg-[#112240] hover:text-[#60a5fa]"}`}>
+              {/* Notification bell — Web Push */}
+              <button
+                onClick={subscribePush}
+                title={pushStatus === "granted" ? "Notificaciones push activas" : pushStatus === "denied" ? "Notificaciones bloqueadas — habilitá en ajustes del browser" : pushStatus === "unsupported" ? "Tu browser no soporta notificaciones" : "Activar notificaciones push"}
+                className={`rounded-lg p-2 transition-colors relative ${pushStatus === "granted" ? "text-blue-400 hover:bg-[#112240]" : pushStatus === "denied" ? "text-red-400/60" : "text-[#4a6fa5] hover:bg-[#112240] hover:text-[#60a5fa]"}`}
+              >
                 <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
                   <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
-                  {notifPermission === "granted" && <circle cx="18" cy="4" r="3" fill="#22c55e" stroke="none"/>}
                 </svg>
+                {pushStatus === "granted" && (
+                  <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-green-400 border border-[#0a1628]" />
+                )}
               </button>
               {/* Logout */}
               <button onClick={handleLogout} title="Cerrar sesión"

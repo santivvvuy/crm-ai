@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { sendWhatsAppMessage, markWhatsAppRead, detectPlatform } from "@/lib/meta-api";
 import { generateBotResponse } from "@/lib/ai-bot";
+import { sendPushToAll } from "@/lib/push-send";
 
 // Server-side Supabase client (not browser client)
 const supabase = createClient(
@@ -122,7 +123,16 @@ async function handleWhatsApp(body: Record<string, unknown>) {
     })
     .eq("id", contact.id);
 
-  // ─── 3. Check if AI is enabled ──────────────────────────────────────────
+  // ─── 3. Send push notification to all devices ──────────────────────────
+
+  await sendPushToAll({
+    title: `💬 ${contact.name}`,
+    body: text.length > 100 ? text.substring(0, 100) + "…" : text,
+    tag: contact.id,
+    contactId: contact.id,
+  });
+
+  // ─── 4. Check if AI is enabled ──────────────────────────────────────────
 
   if (!contact.ai_enabled) {
     console.log(`[Webhook] AI disabled for ${senderName} — skipping auto-reply`);
