@@ -136,31 +136,33 @@ async function handleWhatsApp(body: Record<string, unknown>) {
     .select("text, direction")
     .eq("contact_id", contact.id)
     .order("created_at", { ascending: false })
-    .limit(10);
+    .limit(11);
 
-  const history = (recentMessages ?? [])
-    .reverse()
-    .slice(0, -1) // Exclude the message we just saved
-    .map((m) => ({
-      role: (m.direction === "inbound" ? "user" : "assistant") as "user" | "assistant",
-      content: m.text ?? "",
-    }));
+  const allHistory = (recentMessages ?? []).reverse();
+  // Exclude the message we just saved (last one)
+  const history = allHistory.slice(0, -1).map((m) => ({
+    role: (m.direction === "inbound" ? "user" : "assistant") as "user" | "assistant",
+    content: m.text ?? "",
+  }));
+
+  // First message = no prior history before the current one
+  const isFirstMessage = allHistory.length <= 1;
 
   // ─── 5. Generate AI response ────────────────────────────────────────────
 
-  console.log(`[Webhook] Generating AI response for ${senderName}...`);
-  const aiResponse = await generateBotResponse(text, history);
-  console.log(`[Webhook] AI response: ${aiResponse.substring(0, 100)}...`);
+  console.log(`[Webhook] Generating AI response for ${senderName} (first: ${isFirstMessage})...`);
+  const botResponse = await generateBotResponse(text, history, isFirstMessage);
+  console.log(`[Webhook] AI response: ${botResponse.text.substring(0, 100)}...`);
 
   // ─── 6. Send response via WhatsApp ──────────────────────────────────────
 
-  const sent = await sendWhatsAppMessage(phoneNumberId, senderPhone, aiResponse);
+  const sent = await sendWhatsAppMessage(phoneNumberId, senderPhone, botResponse.text);
 
   if (sent) {
     // Save outbound message to Supabase
     await supabase.from("messages").insert({
       contact_id: contact.id,
-      text: aiResponse,
+      text: botResponse.text,
       direction: "outbound",
       status: "sent",
     });
@@ -169,10 +171,33 @@ async function handleWhatsApp(body: Record<string, unknown>) {
     await supabase
       .from("contacts")
       .update({
-        last_message: aiResponse,
+        last_message: botResponse.text,
         last_message_time: new Date().toISOString(),
       })
       .eq("id", contact.id);
+  }
+
+  // ─── 7. Handle handoff to human ─────────────────────────────────────────
+
+  if (botResponse.handoff) {
+    console.log(`[Webhook] Handoff: disabling AI and labeling contact ${contact.id}`);
+
+    // Disable AI for this contact
+    await supabase
+      .from("contacts")
+      .update({ ai_enabled: false, conversation_status: "pending" })
+      .eq("id", contact.id);
+
+    // Add "Asistente" label (orange)
+    const ASISTENTE_LABEL_ID = "3e425a8b-5422-49cc-a18f-2a4292e55776";
+    await supabase
+      .from("contact_labels")
+      .upsert(
+        { contact_id: contact.id, label_id: ASISTENTE_LABEL_ID },
+        { onConflict: "contact_id,label_id" }
+      );
+
+    console.log(`[Webhook] Contact ${contact.name} transferred to human ✓`);
   }
 }
 
