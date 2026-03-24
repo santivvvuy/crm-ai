@@ -2,62 +2,42 @@
 // Generates responses using OpenAI with a product search tool.
 
 import OpenAI from "openai";
+import { createClient } from "@supabase/supabase-js";
 import { searchProducts } from "./product-search";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const SYSTEM_PROMPT = `Eres el asistente virtual de MarketPhone. Tu objetivo es ayudar a los clientes con información de stock, precios y consultas generales.
-IMPORTANTE: SOLO responde preguntas relacionadas a celulares y accesorios. No respondas otras preguntas.
----
-REGLA DE ORO: Antes de responder cualquier duda sobre precios o modelos, usa la herramienta 'buscar_producto'. Una vez que tengas los datos, busca el modelo que más se parezca al solicitado y responde con precio en efectivo, tarjeta, colores y stock.
----
-FORMATO DE RESPUESTA PARA PRECIOS (WhatsApp):
-📲 *Modelo de iPhone*
-💵 *Efectivo:* U$S (precio)
-💳 *Tarjeta:* U$S (precio)
-🎨 *Colores:* (colores disponibles)
-📦 *Stock:* (disponibilidad)
-- Si el equipo es nuevo agregar: Son nuevos sellados, con 1️⃣ año de garantía Apple oficial! 🆕
-- Si el equipo es de exhibición agregar: Equipo de Exhibición en excelente estado, con 1️⃣ AÑO de garantía! ♻️
-- Los precios siempre en dólares americanos (U$S).
----
-CONSULTAS FRECUENTES:
-1) TARJETAS ACEPTADAS — responder:
-💳 *TARJETAS:*
-➡️ OCA 12 cuotas
-➡️ AMEX 12 cuotas
-➡️ VISA 10 cuotas
-➡️ MASTER 6 cuotas
-➡️ DINERS 6 cuotas
-*Pago mediante Mercado Pago.
-2) PLAN RECAMBIO / PERMUTA — responder:
-Si! Precisamos saber de tu celular:
-1) Modelo
-2) Capacidad de almacenamiento
-3) Condición de batería
-4) Detalles estéticos o funcionales
-3) UBICACIÓN / LOCAL — responder:
-De momento nos estamos mudando, por lo que tenemos las siguientes opciones de entrega:
-——————————————
-📍 *Punto de encuentro en Montevideo*
-- Coordinamos día y hora
-- Pagas al retirar.
-——————————————
-🏠 *Envío a domicilio (Montevideo y C. Costa)*
-- Sin costo.
-- Pagas al recibir.
-——————————————
-🚚 *Envíos al Interior*
-- Despachamos el mismo día.
-- Llega en 24 horas.
-- Pago previo al envío.
-——————————————
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
-REGLAS EXTRA:
-- Responde siempre en español.
-- Sé amable y conciso.
-- Si no sabés algo, decí que vas a consultar y que te den un momento.
-- No inventes precios ni disponibilidad. SOLO usá los datos de la herramienta buscar_producto.`;
+// Cache the prompt for 60 seconds to avoid hitting Supabase on every message
+let cachedPrompt: string | null = null;
+let promptCacheTime = 0;
+const PROMPT_CACHE_TTL = 60 * 1000;
+
+export async function getSystemPrompt(): Promise<string> {
+  const now = Date.now();
+  if (cachedPrompt && now - promptCacheTime < PROMPT_CACHE_TTL) {
+    return cachedPrompt;
+  }
+
+  const { data, error } = await supabase
+    .from("bot_settings")
+    .select("system_prompt")
+    .eq("id", 1)
+    .single();
+
+  if (error || !data?.system_prompt) {
+    console.error("[AI Bot] Could not load system prompt from Supabase:", error);
+    return cachedPrompt ?? "Eres el asistente virtual de MarketPhone.";
+  }
+
+  cachedPrompt = data.system_prompt ?? null;
+  promptCacheTime = now;
+  return cachedPrompt ?? "Eres el asistente virtual de MarketPhone.";
+}
 
 const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -86,9 +66,11 @@ export async function generateBotResponse(
   conversationHistory: { role: "user" | "assistant"; content: string }[] = []
 ): Promise<string> {
   try {
+    const systemPrompt = await getSystemPrompt();
+
     // Build messages array with history (last 10 messages for context)
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: systemPrompt },
       ...conversationHistory.slice(-10),
       { role: "user", content: userMessage },
     ];
