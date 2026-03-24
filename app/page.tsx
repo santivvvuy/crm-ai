@@ -46,7 +46,45 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [swipeDelta, setSwipeDelta] = useState(0);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const isSwiping = useRef(false);
+
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    isSwiping.current = false;
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (touchStartX.current === null || touchStartY.current === null) return;
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+
+    // Only start a horizontal swipe if the gesture is clearly more horizontal than vertical
+    if (!isSwiping.current && Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+    if (!isSwiping.current) {
+      if (Math.abs(dx) < Math.abs(dy)) return; // vertical scroll — don't intercept
+      isSwiping.current = true;
+    }
+
+    if (dx > 0) {
+      e.preventDefault(); // prevent scroll while swiping right
+      setSwipeDelta(Math.min(dx, window.innerWidth));
+    }
+  }
+
+  function handleTouchEnd() {
+    if (swipeDelta > 80) {
+      setMobileView("list");
+    }
+    setSwipeDelta(0);
+    touchStartX.current = null;
+    touchStartY.current = null;
+    isSwiping.current = false;
+  }
 
   async function toggleAI(contact: Contact) {
     const newValue = !contact.aiEnabled;
@@ -349,9 +387,19 @@ export default function Home() {
         </aside>
 
         {/* Chat Area */}
-        <main className={`flex flex-col flex-1 bg-[#060d1a] ${
-          mobileView === "list" ? "hidden md:flex" : "flex"
-        }`}>
+        <main
+          className={`flex flex-col flex-1 bg-[#060d1a] ${
+            mobileView === "list" ? "hidden md:flex" : "flex"
+          }`}
+          style={{
+            transform: swipeDelta > 0 ? `translateX(${swipeDelta}px)` : undefined,
+            transition: swipeDelta === 0 ? "transform 0.25s ease" : "none",
+            touchAction: "pan-y",
+          }}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           {!selectedContact ? (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
