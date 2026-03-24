@@ -7,6 +7,7 @@ import type { Contact, ConversationStatus, Label, Message, Toast } from "@/lib/t
 import { QuickRepliesPopup } from "./components/QuickRepliesPopup";
 import { GlobalSearch } from "./components/GlobalSearch";
 import { ContactDrawer } from "./components/ContactDrawer";
+import { ContactDetail } from "./components/ContactDetail";
 import { BroadcastModal } from "./components/BroadcastModal";
 import { ToastContainer } from "./components/Toast";
 import { useGlobalRealtime } from "./hooks/useGlobalRealtime";
@@ -57,6 +58,9 @@ export default function Home() {
   // Navigation
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [sidebarTab, setSidebarTab] = useState<"chats" | "contactos">("chats");
+
+  // Directory: selected contact for detail view in Contactos tab
+  const [selectedDirectoryContact, setSelectedDirectoryContact] = useState<Contact | null>(null);
 
   // Labels
   const [labels, setLabels] = useState<Label[]>([]);
@@ -488,7 +492,7 @@ export default function Home() {
 
           {/* Tabs */}
           <div className="flex px-4 pb-2 gap-1">
-            <button onClick={() => setSidebarTab("chats")}
+            <button onClick={() => { setSidebarTab("chats"); setSelectedDirectoryContact(null); }}
               className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all ${sidebarTab === "chats" ? "bg-[#112240] text-blue-400 border border-[#1e3a5f]" : "text-[#2d4a6e] hover:text-[#4a6fa5]"}`}>
               Chats
             </button>
@@ -604,9 +608,13 @@ export default function Home() {
               ))
             ) : (
               filteredContacts.map((contact) => (
-                <div key={contact.id} className="flex items-center gap-3 rounded-xl px-3 py-3 mb-0.5 border border-transparent hover:bg-[#0d1f35] transition-all">
+                <button
+                  key={contact.id}
+                  onClick={() => { setSelectedDirectoryContact(contact); setMobileView("chat"); }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 mb-0.5 border text-left transition-all ${selectedDirectoryContact?.id === contact.id ? "bg-[#112240] border-[#1e3a5f]" : "border-transparent hover:bg-[#0d1f35]"}`}
+                >
                   <div className="relative shrink-0">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#0d2444] text-sm font-semibold text-white shadow-md">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-md ${selectedDirectoryContact?.id === contact.id ? "bg-gradient-to-br from-blue-500 to-blue-700 shadow-blue-900/40" : "bg-gradient-to-br from-[#1e3a5f] to-[#0d2444]"}`}>
                       {contact.avatar}
                     </div>
                     <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0a1628]" style={{ backgroundColor: STATUS_COLORS[contact.conversationStatus] }} />
@@ -618,40 +626,61 @@ export default function Home() {
                       <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${contact.aiEnabled ? "bg-blue-500/20 text-blue-400" : "bg-[#112240] text-[#4a6fa5]"}`}>
                         {contact.aiEnabled ? "IA" : "Manual"}
                       </span>
-                      {contact.labels.map((label) => (
+                      {contact.labels.slice(0, 3).map((label) => (
                         <span key={label.id} className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-md" style={{ backgroundColor: label.color + "33", color: label.color }}>
                           {label.name}
                         </span>
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => { setSelectedContact(contact); setSidebarTab("chats"); setMobileView("chat"); }}
-                    className="shrink-0 rounded-lg p-2 text-[#4a6fa5] hover:bg-[#112240] hover:text-blue-400 transition-colors" title="Abrir chat">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                    </svg>
-                  </button>
-                </div>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#2d4a6e" strokeWidth="2" className="shrink-0">
+                    <path d="M9 18l6-6-6-6"/>
+                  </svg>
+                </button>
               ))
             )}
           </div>
         </aside>
 
-        {/* ── Chat area ────────────────────────────────────────────────────── */}
+        {/* ── Chat area / Contact detail ──────────────────────────────────── */}
         <main
           className={`flex flex-col flex-1 bg-[#060d1a] min-w-0 ${mobileView === "list" ? "hidden md:flex" : "flex"}`}
           style={{ transform: swipeDelta > 0 ? `translateX(${swipeDelta}px)` : undefined, transition: swipeDelta === 0 ? "transform 0.25s ease" : "none", touchAction: "pan-y" }}
           onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
         >
-          {!selectedContact ? (
+          {/* Contact detail panel (Contactos tab) */}
+          {sidebarTab === "contactos" && selectedDirectoryContact ? (
+            <ContactDetail
+              contact={selectedDirectoryContact}
+              labels={labels}
+              onBack={() => { setSelectedDirectoryContact(null); setMobileView("list"); }}
+              onOpenChat={(c) => {
+                setSelectedContact(c);
+                setSidebarTab("chats");
+                setMobileView("chat");
+              }}
+              onContactUpdated={(updated) => {
+                setSelectedDirectoryContact(updated);
+                setContacts((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+              }}
+            />
+          ) : !selectedContact ? (
             <div className="flex flex-1 items-center justify-center">
               <div className="text-center">
                 <div className="mb-4 flex h-16 w-16 mx-auto items-center justify-center rounded-2xl bg-[#0a1628] border border-[#1a2d4a]">
-                  <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#1e3a5f" strokeWidth="1.5">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-                  </svg>
+                  {sidebarTab === "contactos" ? (
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#1e3a5f" strokeWidth="1.5">
+                      <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#1e3a5f" strokeWidth="1.5">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  )}
                 </div>
-                <p className="text-sm text-[#2d4a6e]">{loading ? "Cargando..." : "Seleccioná una conversación"}</p>
+                <p className="text-sm text-[#2d4a6e]">
+                  {loading ? "Cargando..." : sidebarTab === "contactos" ? "Seleccioná un contacto" : "Seleccioná una conversación"}
+                </p>
               </div>
             </div>
           ) : (
