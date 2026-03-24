@@ -529,7 +529,7 @@ export default function Home() {
 
           {/* Label filter chips (chats tab only) */}
           {sidebarTab === "chats" && labels.length > 0 && (
-            <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto scrollbar-none">
+            <div className="flex gap-1.5 px-4 pb-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               <button
                 onClick={() => setActiveFilter(null)}
                 className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold transition-all ${
