@@ -46,6 +46,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const [sidebarTab, setSidebarTab] = useState<"chats" | "contactos">("chats");
   const [swipeDelta, setSwipeDelta] = useState(0);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -316,7 +317,7 @@ export default function Home() {
               </svg>
               <input
                 type="text"
-                placeholder="Buscar conversación..."
+                placeholder={sidebarTab === "chats" ? "Buscar conversación..." : "Buscar contacto..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full bg-transparent text-sm text-[#94a3b8] placeholder-[#2d4a6e] outline-none"
@@ -324,65 +325,121 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Contacts label */}
-          <div className="px-5 pb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#2d4a6e]">
-              Conversaciones
-            </span>
+          {/* Tabs */}
+          <div className="flex px-4 pb-2 gap-1">
+            <button
+              onClick={() => setSidebarTab("chats")}
+              className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all ${
+                sidebarTab === "chats"
+                  ? "bg-[#112240] text-blue-400 border border-[#1e3a5f]"
+                  : "text-[#2d4a6e] hover:text-[#4a6fa5]"
+              }`}
+            >
+              Chats
+            </button>
+            <button
+              onClick={() => setSidebarTab("contactos")}
+              className={`flex-1 py-1.5 rounded-lg text-[11px] font-semibold uppercase tracking-wider transition-all ${
+                sidebarTab === "contactos"
+                  ? "bg-[#112240] text-blue-400 border border-[#1e3a5f]"
+                  : "text-[#2d4a6e] hover:text-[#4a6fa5]"
+              }`}
+            >
+              Contactos ({contacts.length})
+            </button>
           </div>
 
-          {/* Contact List */}
+          {/* Content based on tab */}
           <div className="flex-1 overflow-y-auto px-2">
             {loading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
               </div>
-            ) : filteredContacts.map((contact) => (
-              <button
-                key={contact.id}
-                onClick={() => { setSelectedContact(contact); setMobileView("chat"); }}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all mb-0.5 ${
-                  selectedContact?.id === contact.id
-                    ? "bg-[#112240] border border-[#1e3a5f]"
-                    : "hover:bg-[#0d1f35] border border-transparent"
-                }`}
-              >
-                {/* Avatar */}
-                <div className="relative shrink-0">
-                  <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-md ${
+            ) : sidebarTab === "chats" ? (
+              /* Chat List */
+              filteredContacts.map((contact) => (
+                <button
+                  key={contact.id}
+                  onClick={() => { setSelectedContact(contact); setMobileView("chat"); }}
+                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-all mb-0.5 ${
                     selectedContact?.id === contact.id
-                      ? "bg-gradient-to-br from-blue-500 to-blue-700 shadow-blue-900/40"
-                      : "bg-gradient-to-br from-[#1e3a5f] to-[#0d2444]"
-                  }`}>
-                    {contact.avatar}
-                  </div>
-                  {contact.online && (
-                    <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0a1628] bg-emerald-400" />
-                  )}
-                </div>
-
-                {/* Info */}
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-sm font-medium text-[#e2e8f0]">{contact.name}</span>
-                    <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                      {contact.aiEnabled && (
-                        <span className="text-[10px] text-blue-400">●</span>
-                      )}
-                      <span className="text-[11px] text-[#2d4a6e]">{contact.time}</span>
+                      ? "bg-[#112240] border border-[#1e3a5f]"
+                      : "hover:bg-[#0d1f35] border border-transparent"
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-md ${
+                      selectedContact?.id === contact.id
+                        ? "bg-gradient-to-br from-blue-500 to-blue-700 shadow-blue-900/40"
+                        : "bg-gradient-to-br from-[#1e3a5f] to-[#0d2444]"
+                    }`}>
+                      {contact.avatar}
                     </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="truncate text-xs text-[#3d5a80]">{contact.lastMessage || "Sin mensajes"}</span>
-                    {contact.unread > 0 && (
-                      <span className="ml-2 flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white">
-                        {contact.unread}
-                      </span>
+                    {contact.online && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0a1628] bg-emerald-400" />
                     )}
                   </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex items-center justify-between">
+                      <span className="truncate text-sm font-medium text-[#e2e8f0]">{contact.name}</span>
+                      <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                        {contact.aiEnabled && (
+                          <span className="text-[10px] text-blue-400">●</span>
+                        )}
+                        <span className="text-[11px] text-[#2d4a6e]">{contact.time}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="truncate text-xs text-[#3d5a80]">{contact.lastMessage || "Sin mensajes"}</span>
+                      {contact.unread > 0 && (
+                        <span className="ml-2 flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white">
+                          {contact.unread}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </button>
+              ))
+            ) : (
+              /* Contacts Directory */
+              filteredContacts.map((contact) => (
+                <div
+                  key={contact.id}
+                  className="flex items-center gap-3 rounded-xl px-3 py-3 mb-0.5 border border-transparent hover:bg-[#0d1f35] transition-all"
+                >
+                  <div className="relative shrink-0">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-[#1e3a5f] to-[#0d2444] text-sm font-semibold text-white shadow-md">
+                      {contact.avatar}
+                    </div>
+                    {contact.online && (
+                      <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#0a1628] bg-emerald-400" />
+                    )}
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    <span className="truncate text-sm font-medium text-[#e2e8f0]">{contact.name}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-[#3d5a80]">{contact.phone}</span>
+                      <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${
+                        contact.aiEnabled
+                          ? "bg-blue-500/20 text-blue-400"
+                          : "bg-[#112240] text-[#4a6fa5]"
+                      }`}>
+                        {contact.aiEnabled ? "IA" : "Manual"}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setSelectedContact(contact); setSidebarTab("chats"); setMobileView("chat"); }}
+                    className="shrink-0 rounded-lg p-2 text-[#4a6fa5] hover:bg-[#112240] hover:text-blue-400 transition-colors"
+                    title="Abrir chat"
+                  >
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                    </svg>
+                  </button>
                 </div>
-              </button>
-            ))}
+              ))
+            )}
           </div>
         </aside>
 
