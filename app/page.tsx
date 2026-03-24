@@ -124,6 +124,7 @@ export default function Home() {
   useEffect(() => {
     if (!selectedContact) return;
 
+    setMessages([]);
     let cancelled = false;
 
     async function fetchMessages() {
