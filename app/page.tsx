@@ -318,6 +318,10 @@ export default function Home() {
           const row = payload.new;
           const msg: Message = { id: row.id, text: row.text ?? row.content ?? "", time: formatTime(row.created_at), fromMe: row.direction === "outbound", status: row.status ?? "delivered" };
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
+          // Update sidebar preview for the active contact
+          setContacts((prev) =>
+            prev.map((c) => c.id === row.contact_id ? { ...c, lastMessage: msg.text, time: msg.time } : c)
+          );
         }).subscribe();
     return () => { cancelled = true; supabase.removeChannel(channel); };
   }, [selectedContact?.id]);
@@ -344,6 +348,33 @@ export default function Home() {
     return () => document.removeEventListener("mousedown", handler);
   }, [showLabelDropdown]);
 
+  // Realtime: sync last_message preview + unread from contacts table updates
+  useEffect(() => {
+    const channel = supabase
+      .channel("contacts-updates")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "contacts" },
+        (payload) => {
+          const row = payload.new;
+          setContacts((prev) =>
+            prev.map((c) =>
+              c.id === row.id
+                ? {
+                    ...c,
+                    lastMessage: row.last_message ?? c.lastMessage,
+                    time: row.last_message_time ?? c.time,
+                    unread: row.unread_count ?? c.unread,
+                  }
+                : c
+            )
+          );
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
   // Cmd+K / Ctrl+K global search
   useEffect(() => {
     function handler(e: KeyboardEvent) {
@@ -362,12 +393,16 @@ export default function Home() {
     const text = inputValue.trim();
     if (!text || !selectedContact) return;
     setInputValue("");
+    const now = new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
     const optimistic: Message = {
-      id: crypto.randomUUID(), text,
-      time: new Date().toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" }),
-      fromMe: true, status: "sent",
+      id: crypto.randomUUID(), text, time: now, fromMe: true, status: "sent",
     };
     setMessages((prev) => [...prev, optimistic]);
+
+    // Update sidebar preview immediately
+    setContacts((prev) =>
+      prev.map((c) => (c.id === selectedContact.id ? { ...c, lastMessage: text, time: now } : c))
+    );
     const { data, error } = await supabase.from("messages")
       .insert({ contact_id: selectedContact.id, text, direction: "outbound" }).select().single();
     if (error) { setMessages((prev) => prev.filter((m) => m.id !== optimistic.id)); return; }

@@ -11,7 +11,7 @@ interface Props {
 }
 
 export function useGlobalRealtime({ selectedContactId, contacts, onNewMessage }: Props) {
-  // Use refs to always have current values in the realtime handler without re-subscribing
+  // Refs so the stable subscription always reads current values
   const contactsRef = useRef(contacts);
   const selectedIdRef = useRef(selectedContactId);
   const onNewMessageRef = useRef(onNewMessage);
@@ -21,38 +21,45 @@ export function useGlobalRealtime({ selectedContactId, contacts, onNewMessage }:
   onNewMessageRef.current = onNewMessage;
 
   useEffect(() => {
+    // NOTE: Do NOT use `filter` here — column-level filters on postgres_changes
+    // are unreliable on free-tier Supabase plans. Filter in the callback instead.
     const channel = supabase
       .channel("global-inbound")
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: "direction=eq.inbound",
-        },
+        { event: "INSERT", schema: "public", table: "messages" },
         (payload) => {
           const row = payload.new;
 
-          // Already visible in the active chat — skip
+          // Only care about inbound messages
+          if (row.direction !== "inbound") return;
+
+          // Already visible in the active chat — skip toast/notification
           if (row.contact_id === selectedIdRef.current) return;
 
           const contact = contactsRef.current.find((c) => c.id === row.contact_id);
           const name = contact?.name ?? "Nuevo mensaje";
           const text: string = row.text ?? row.content ?? "";
 
-          // Browser notification when tab is hidden
-          if (typeof document !== "undefined" && document.hidden) {
-            if ("Notification" in window && Notification.permission === "granted") {
+          // Browser notification when tab is hidden or not focused
+          if (
+            typeof document !== "undefined" &&
+            document.hidden &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            try {
               new Notification(`Nuevo mensaje de ${name}`, {
                 body: text,
                 icon: "/icon-192.png",
-                tag: row.contact_id, // collapse duplicates from same contact
+                tag: row.contact_id, // collapses duplicates from same contact
               });
+            } catch {
+              // Some browsers block new Notification() outside a user gesture — ignore
             }
           }
 
-          // In-app toast regardless (so user sees it even if tab is visible)
+          // In-app toast always (also fires when tab is visible but viewing a different chat)
           onNewMessageRef.current(name, text, row.contact_id);
         }
       )
@@ -61,5 +68,5 @@ export function useGlobalRealtime({ selectedContactId, contacts, onNewMessage }:
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []); // stable — uses refs internally
+  }, []); // stable subscription — reads current values via refs
 }
