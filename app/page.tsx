@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Contact = {
@@ -63,6 +63,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   async function toggleAI(contact: Contact) {
     const newValue = !contact.aiEnabled;
@@ -146,7 +147,7 @@ export default function Home() {
         id: row.id,
         text: row.text ?? row.content ?? "",
         time: formatTime(row.created_at),
-        fromMe: row.from_me ?? false,
+        fromMe: row.direction === "outbound",
         status: row.status ?? "delivered",
       }));
 
@@ -173,7 +174,7 @@ export default function Home() {
             id: row.id,
             text: row.text ?? row.content ?? "",
             time: formatTime(row.created_at),
-            fromMe: row.from_me ?? false,
+            fromMe: row.direction === "outbound",
             status: row.status ?? "delivered",
           };
           setMessages((prev) => {
@@ -188,6 +189,26 @@ export default function Home() {
       cancelled = true;
       supabase.removeChannel(channel);
     };
+  }, [selectedContact?.id]);
+
+  // Auto-scroll al último mensaje
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  // Resetear unread cuando se abre un chat
+  useEffect(() => {
+    if (!selectedContact || selectedContact.unread === 0) return;
+    setContacts((prev) =>
+      prev.map((c) => (c.id === selectedContact.id ? { ...c, unread: 0 } : c))
+    );
+    supabase
+      .from("contacts")
+      .update({ unread_count: 0 })
+      .eq("id", selectedContact.id)
+      .then(({ error }) => {
+        if (error) console.error("Error resetting unread:", error);
+      });
   }, [selectedContact?.id]);
 
   const filteredContacts = contacts.filter((c) =>
@@ -436,6 +457,7 @@ export default function Home() {
                 </div>
               </div>
             ))}
+            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}

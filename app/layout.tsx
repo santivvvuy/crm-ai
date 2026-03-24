@@ -35,6 +35,11 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${geistSans.variable} antialiased`}>
         {children}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
+          }}
+        />
       </body>
     </html>
   );
