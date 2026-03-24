@@ -75,7 +75,8 @@ self.addEventListener("notificationclick", (event) => {
             return;
           }
         }
-        return self.clients.openWindow("/");
+        const url = contactId ? `/?contact=${contactId}` : "/";
+        return self.clients.openWindow(url);
       })
   );
 });

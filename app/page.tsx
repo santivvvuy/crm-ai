@@ -43,6 +43,15 @@ function formatTime(dateStr: string): string {
   return new Date(dateStr).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" });
 }
 
+// Move a contact to the top of the list (most recent activity first)
+function moveToTop(contacts: Contact[], contactId: string): Contact[] {
+  const idx = contacts.findIndex((c) => c.id === contactId);
+  if (idx <= 0) return contacts;
+  const updated = [...contacts];
+  const [contact] = updated.splice(idx, 1);
+  return [contact, ...updated];
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function Home() {
@@ -134,6 +143,45 @@ export default function Home() {
       setMobileView("chat");
     }
   }
+
+  // ─── Service Worker: handle notification click → open contact ───────────────
+
+  const contactsRef = useRef(contacts);
+  contactsRef.current = contacts;
+
+  useEffect(() => {
+    function handleSWMessage(event: MessageEvent) {
+      if (event.data?.type === "OPEN_CONTACT" && event.data.contactId) {
+        const contact = contactsRef.current.find((c) => c.id === event.data.contactId);
+        if (contact) {
+          setSelectedContact(contact);
+          setSidebarTab("chats");
+          setMobileView("chat");
+        }
+      }
+    }
+    navigator.serviceWorker?.addEventListener("message", handleSWMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", handleSWMessage);
+  }, []);
+
+  // Also handle ?contact= param for when app opens fresh from notification
+  const handledDeepLink = useRef(false);
+  useEffect(() => {
+    if (handledDeepLink.current || contacts.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const contactId = params.get("contact");
+    if (contactId) {
+      handledDeepLink.current = true;
+      const contact = contacts.find((c) => c.id === contactId);
+      if (contact) {
+        setSelectedContact(contact);
+        setSidebarTab("chats");
+        setMobileView("chat");
+      }
+      // Clean URL
+      window.history.replaceState({}, "", "/");
+    }
+  }, [contacts]);
 
   // ─── Global realtime (notifications + toasts) ──────────────────────────────
 
@@ -273,6 +321,7 @@ export default function Home() {
           id, name, phone, last_message, last_message_time, unread_count, online, ai_enabled, conversation_status,
           contact_labels ( label_id, labels ( id, name, color ) )
         `)
+        .order("last_message_time", { ascending: false, nullsFirst: false })
         .order("name");
       if (error) { setLoading(false); return; }
       const mapped: Contact[] = (data ?? []).map((row) => ({
@@ -316,9 +365,12 @@ export default function Home() {
           const row = payload.new;
           const msg: Message = { id: row.id, text: row.text ?? row.content ?? "", time: formatTime(row.created_at), fromMe: row.direction === "outbound", status: row.status ?? "delivered" };
           setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
-          // Update sidebar preview for the active contact
+          // Update sidebar preview for the active contact and move to top
           setContacts((prev) =>
-            prev.map((c) => c.id === row.contact_id ? { ...c, lastMessage: msg.text, time: msg.time } : c)
+            moveToTop(
+              prev.map((c) => c.id === row.contact_id ? { ...c, lastMessage: msg.text, time: msg.time } : c),
+              row.contact_id
+            )
           );
         }).subscribe();
     return () => { cancelled = true; supabase.removeChannel(channel); };
@@ -355,8 +407,8 @@ export default function Home() {
         { event: "UPDATE", schema: "public", table: "contacts" },
         (payload) => {
           const row = payload.new;
-          setContacts((prev) =>
-            prev.map((c) =>
+          setContacts((prev) => {
+            const updated = prev.map((c) =>
               c.id === row.id
                 ? {
                     ...c,
@@ -365,8 +417,10 @@ export default function Home() {
                     unread: row.unread_count ?? c.unread,
                   }
                 : c
-            )
-          );
+            );
+            // Move to top when a new message arrives (last_message changed)
+            return row.last_message ? moveToTop(updated, row.id) : updated;
+          });
         }
       )
       .subscribe();
@@ -397,9 +451,12 @@ export default function Home() {
     };
     setMessages((prev) => [...prev, optimistic]);
 
-    // Update sidebar preview immediately
+    // Update sidebar preview immediately and move to top
     setContacts((prev) =>
-      prev.map((c) => (c.id === selectedContact.id ? { ...c, lastMessage: text, time: now } : c))
+      moveToTop(
+        prev.map((c) => (c.id === selectedContact.id ? { ...c, lastMessage: text, time: now } : c)),
+        selectedContact.id
+      )
     );
     const { data, error } = await supabase.from("messages")
       .insert({ contact_id: selectedContact.id, text, direction: "outbound" }).select().single();
@@ -613,7 +670,7 @@ export default function Home() {
                 </button>
               ))
             ) : (
-              filteredContacts.map((contact) => (
+              [...filteredContacts].sort((a, b) => a.name.localeCompare(b.name, "es")).map((contact) => (
                 <button
                   key={contact.id}
                   onClick={() => { setSelectedDirectoryContact(contact); setMobileView("chat"); }}
