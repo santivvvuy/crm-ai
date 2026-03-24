@@ -69,9 +69,9 @@ export default function Home() {
     setContacts((prev) =>
       prev.map((c) => (c.id === contact.id ? { ...c, aiEnabled: newValue } : c))
     );
-    if (selectedContact?.id === contact.id) {
-      setSelectedContact((prev) => prev ? { ...prev, aiEnabled: newValue } : prev);
-    }
+    setSelectedContact((prev) =>
+      prev?.id === contact.id ? { ...prev, aiEnabled: newValue } : prev
+    );
     const { error } = await supabase
       .from("contacts")
       .update({ ai_enabled: newValue })
@@ -81,9 +81,9 @@ export default function Home() {
       setContacts((prev) =>
         prev.map((c) => (c.id === contact.id ? { ...c, aiEnabled: !newValue } : c))
       );
-      if (selectedContact?.id === contact.id) {
-        setSelectedContact((prev) => prev ? { ...prev, aiEnabled: !newValue } : prev);
-      }
+      setSelectedContact((prev) =>
+        prev?.id === contact.id ? { ...prev, aiEnabled: !newValue } : prev
+      );
     }
   }
 
