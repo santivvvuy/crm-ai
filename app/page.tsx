@@ -63,7 +63,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   async function toggleAI(contact: Contact) {
     const newValue = !contact.aiEnabled;
@@ -191,14 +191,17 @@ export default function Home() {
     };
   }, [selectedContact?.id]);
 
-  // Auto-scroll al último mensaje
+  // Auto-scroll al último mensaje usando el contenedor directamente
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    const container = messagesContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
   }, [messages]);
 
-  // Resetear unread cuando se abre un chat
+  // Resetear unread cuando se abre un chat (siempre, sin condición)
   useEffect(() => {
-    if (!selectedContact || selectedContact.unread === 0) return;
+    if (!selectedContact) return;
     setContacts((prev) =>
       prev.map((c) => (c.id === selectedContact.id ? { ...c, unread: 0 } : c))
     );
@@ -421,6 +424,7 @@ export default function Home() {
 
           {/* Messages */}
           <div
+            ref={messagesContainerRef}
             className="flex flex-1 flex-col gap-1 overflow-y-auto px-[7%] py-4"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23111b21' fill-opacity='0.6'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
@@ -457,7 +461,6 @@ export default function Home() {
                 </div>
               </div>
             ))}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Input Area */}
