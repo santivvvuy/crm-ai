@@ -47,6 +47,11 @@ export default function Home() {
   const [loadingMessages, setLoadingMessages] = useState(false);
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
   const [sidebarTab, setSidebarTab] = useState<"chats" | "contactos">("chats");
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactError, setContactError] = useState("");
   const [swipeDelta, setSwipeDelta] = useState(0);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef<number | null>(null);
@@ -108,6 +113,70 @@ export default function Home() {
         prev?.id === contact.id ? { ...prev, aiEnabled: !newValue } : prev
       );
     }
+  }
+
+  async function handleAddContact() {
+    const name = newName.trim();
+    const phone = newPhone.trim().replace(/[^0-9]/g, "");
+    if (!name || !phone) {
+      setContactError("Nombre y teléfono son obligatorios");
+      return;
+    }
+    if (phone.length < 8) {
+      setContactError("Teléfono inválido");
+      return;
+    }
+
+    // Check if phone already exists
+    const existing = contacts.find((c) => c.phone === phone);
+    if (existing) {
+      setSelectedContact(existing);
+      setSidebarTab("chats");
+      setMobileView("chat");
+      setShowNewContact(false);
+      setNewName("");
+      setNewPhone("");
+      setContactError("");
+      return;
+    }
+
+    setSavingContact(true);
+    setContactError("");
+
+    const { data, error } = await supabase
+      .from("contacts")
+      .insert({ name, phone, ai_enabled: true })
+      .select()
+      .single();
+
+    setSavingContact(false);
+
+    if (error) {
+      console.error("Error creating contact:", error);
+      setContactError("Error al crear contacto");
+      return;
+    }
+
+    const newContact: Contact = {
+      id: data.id,
+      name: data.name,
+      phone: data.phone,
+      avatar: getInitials(data.name),
+      lastMessage: "",
+      time: "",
+      unread: 0,
+      online: false,
+      aiEnabled: data.ai_enabled ?? true,
+    };
+
+    setContacts((prev) => [...prev, newContact].sort((a, b) => a.name.localeCompare(b.name)));
+    setSelectedContact(newContact);
+    setSidebarTab("chats");
+    setMobileView("chat");
+    setShowNewContact(false);
+    setNewName("");
+    setNewPhone("");
+    setContactError("");
   }
 
   useEffect(() => {
@@ -347,7 +416,62 @@ export default function Home() {
             >
               Contactos ({contacts.length})
             </button>
+            {sidebarTab === "contactos" && (
+              <button
+                onClick={() => setShowNewContact(true)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-600 text-white hover:bg-blue-500 transition-colors"
+                title="Agregar contacto"
+              >
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12h14"/>
+                </svg>
+              </button>
+            )}
           </div>
+
+          {/* New Contact Form */}
+          {showNewContact && (
+            <div className="px-4 pb-3">
+              <div className="rounded-xl bg-[#0d1f35] border border-[#1a2d4a] p-3 space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-semibold text-[#e2e8f0]">Nuevo contacto</span>
+                  <button
+                    onClick={() => { setShowNewContact(false); setNewName(""); setNewPhone(""); setContactError(""); }}
+                    className="text-[#4a6fa5] hover:text-[#60a5fa] transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M18 6L6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Nombre"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  className="w-full rounded-lg bg-[#0a1628] border border-[#1a2d4a] px-3 py-2 text-sm text-[#e2e8f0] placeholder-[#2d4a6e] outline-none focus:border-blue-500/50"
+                />
+                <input
+                  type="tel"
+                  placeholder="Teléfono (ej: 59899123456)"
+                  value={newPhone}
+                  onChange={(e) => setNewPhone(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddContact(); }}
+                  className="w-full rounded-lg bg-[#0a1628] border border-[#1a2d4a] px-3 py-2 text-sm text-[#e2e8f0] placeholder-[#2d4a6e] outline-none focus:border-blue-500/50"
+                />
+                {contactError && (
+                  <p className="text-[11px] text-red-400">{contactError}</p>
+                )}
+                <button
+                  onClick={handleAddContact}
+                  disabled={savingContact}
+                  className="w-full rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white hover:bg-blue-500 active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  {savingContact ? "Guardando..." : "Agregar y abrir chat"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Content based on tab */}
           <div className="flex-1 overflow-y-auto px-2">
