@@ -3,12 +3,7 @@
 // Sends a push notification to ALL registered devices.
 
 import webpush from "web-push";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabaseAdmin as supabase } from "@/lib/supabase-server";
 
 function initWebPush() {
   webpush.setVapidDetails(

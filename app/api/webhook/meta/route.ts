@@ -7,16 +7,10 @@
 // Flow: Receive message → Save to Supabase → Check AI enabled → Generate response → Send back
 
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin as supabase } from "@/lib/supabase-server";
 import { sendWhatsAppMessage, markWhatsAppRead, detectPlatform } from "@/lib/meta-api";
 import { generateBotResponse } from "@/lib/ai-bot";
 import { sendPushToAll } from "@/lib/push-send";
-
-// Server-side Supabase client (not browser client)
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // ─── GET: Webhook Verification ──────────────────────────────────────────────
 

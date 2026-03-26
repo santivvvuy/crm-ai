@@ -2,15 +2,10 @@
 // Generates responses using OpenAI with product search + human handoff tools.
 
 import OpenAI from "openai";
-import { createClient } from "@supabase/supabase-js";
+import { supabaseAdmin as supabase } from "@/lib/supabase-server";
 import { searchProducts } from "./product-search";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 // Cache the prompt for 60 seconds to avoid hitting Supabase on every message
 let cachedPrompt: string | null = null;
